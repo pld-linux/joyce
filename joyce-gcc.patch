@@ -1,0 +1,77 @@
+--- joyce-2.0.2/SdlTerm/SdlContext.cxx.orig	2001-09-08 13:10:42.000000000 +0200
++++ joyce-2.0.2/SdlTerm/SdlContext.cxx	2003-08-23 11:20:15.952574648 +0200
+@@ -20,6 +20,7 @@
+ 
+ *************************************************************************/
+ 
++#include <string.h>
+ #include <SDL.h>
+ #include "SdlContext.hxx"
+ 
+--- joyce-2.0.2/bin/Joyce.hxx.orig	2002-12-17 00:26:13.000000000 +0100
++++ joyce-2.0.2/bin/Joyce.hxx	2003-08-23 12:06:19.920387672 +0200
+@@ -44,6 +44,8 @@
+ #include <vector>
+ #include <string>
+ 
++using namespace std;
++
+ // The XLOG macro allows me to do printf()-style debugging of the 
+ // JoyceSystem::JoyceSystem construct phase.
+ #define XLOG(s)
+--- joyce-2.0.2/bin/UiControl.hxx.orig	2002-02-02 13:43:08.000000000 +0100
++++ joyce-2.0.2/bin/UiControl.hxx	2003-08-23 12:52:31.417056136 +0200
+@@ -22,6 +22,8 @@
+ 
+ class UiContainer;
+ 
++using namespace std;
++
+ //
+ // NOTA BENE: Coordinates are in pixels.
+ //
+--- joyce-2.0.2/bin/Path.cxx.orig	2001-09-15 01:54:48.000000000 +0200
++++ joyce-2.0.2/bin/Path.cxx	2003-08-23 12:54:34.117402848 +0200
+@@ -24,6 +24,8 @@
+ #include <vector>
+ #include <algorithm>
+ 
++using namespace std;
++
+ #include <stdio.h>
+ #include <limits.h>
+ #include <unistd.h>
+--- joyce-2.0.2/bin/JoyceDevice.cxx.orig	2002-05-05 15:14:20.000000000 +0200
++++ joyce-2.0.2/bin/JoyceDevice.cxx	2003-08-23 12:55:28.420147576 +0200
+@@ -219,7 +219,7 @@
+ 	return m_enabled;
+ }
+ 
+-void JoyceDevice::enable(bool b = true)
++void JoyceDevice::enable(bool b /* = true */)
+ {
+ 	m_enabled = b;
+ }
+--- joyce-2.0.2/bin/JoyceSystem.cxx.orig	2002-05-05 15:12:48.000000000 +0200
++++ joyce-2.0.2/bin/JoyceSystem.cxx	2003-08-23 13:29:56.149804888 +0200
+@@ -827,7 +827,7 @@
+ 	if (n < 0) return false;
+ 	
+ 	// Remove disc from the boot list	
+-	m_bootList.erase(&m_bootList[n]);
++	m_bootList.erase(vector<BootListEntry>::iterator(&m_bootList[n]));
+ 	// Remove it from the XML	
+ 	xmlNodePtr cur  = xmlDocGetRootElement(m_bootcfg);
+ 	xmlNodePtr next;
+--- joyce-2.0.2/bin/UiContainer.hxx.orig	2001-08-25 01:40:05.000000000 +0200
++++ joyce-2.0.2/bin/UiContainer.hxx	2003-08-23 13:34:27.776511352 +0200
+@@ -20,6 +20,9 @@
+ 
+ *************************************************************************/
+ 
++#include <vector>
++using namespace std;
++
+ class UiContainer : public UiControl
+ {
+ public:

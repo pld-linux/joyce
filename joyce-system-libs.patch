@@ -1,0 +1,443 @@
+--- joyce-2.0.2/bin/Makefile.am.orig	2002-02-16 12:50:51.000000000 +0100
++++ joyce-2.0.2/bin/Makefile.am	2003-08-23 11:07:39.656549120 +0200
+@@ -1,8 +1,8 @@
+-INCLUDES=-I$(top_srcdir)/765 -I$(top_srcdir)/SdlTerm  -I$(top_srcdir)/Xbm
++INCLUDES=-I$(top_srcdir)/SdlTerm  -I$(top_srcdir)/Xbm
+ 
+ bin_PROGRAMS=xjoyce
+ 
+-xjoyce_LDADD=-l765 -lsdlterm ../LibDsk/lib/libdsk.la
++xjoyce_LDADD=../SdlTerm/libsdlterm.a -l765 -ldsk
+ xjoyce_SOURCES= \
+         JoyceSdlContext.cxx JoyceSdlKbd.cxx JoyceSdlMnu.cxx \
+ 	JoyceSdlGfx.cxx \
+--- joyce-2.0.2/Makefile.am.orig	2001-10-21 00:04:19.000000000 +0200
++++ joyce-2.0.2/Makefile.am	2003-08-23 11:05:13.003843720 +0200
+@@ -1,5 +1,5 @@
+ 
+-SUBDIRS=share cpmredir 765 SdlTerm LibDsk Xbm Docs bin .
++SUBDIRS=share SdlTerm Xbm Docs bin .
+ 
+ SOURCES=md3trans.exe pcwtrans.exe pcw.png font8x16.x16 
+ EXTRA_DIST=$(srcdir)/config/*  $(srcdir)/ministl/* COPYING.txt setup/joyce.iwz setup/pcw.ico setup/joyce16.bmp
+--- joyce-2.0.2/configure.in.orig	2002-12-17 00:09:27.000000000 +0100
++++ joyce-2.0.2/configure.in	2003-08-23 11:06:47.184526080 +0200
+@@ -22,8 +22,7 @@
+ AC_MINGW32
+ AC_EXEEXT
+ dnl Add cpmredir to list of things to do
+-CPPFLAGS="$CPPFLAGS -I$SRCROOT -I$SRCROOT/cpmredir/include -I$SRCROOT/LibDsk/include -I$SRCROOT/765 -DALIBROOT=${datadir}/Joyce"
+-LDFLAGS="$LDFLAGS -L$DSTROOT/765 -L$DSTROOT/SdlTerm -L$DSTROOT/cpmredir/lib -L$DSTROOT/LibDsk/lib"
++CPPFLAGS="$CPPFLAGS -I$SRCROOT -DALIBROOT=${datadir}/Joyce"
+ 
+ dnl
+ dnl Use mini-STL rather than the host platform's STL
+@@ -97,7 +97,10 @@
+   fi
+ fi
+ 
+-AC_CHECK_LIB(xml, xmlAddChild, , [echo "libxml not found - aborting"; exit 1])
++AM_PATH_XML2(1.0.0, 
++	[CPPFLAGS="$CPPFLAGS $XML_CFLAGS"
++	 LIBS="$LIBS $XML_LIBS"],
++	[echo "libxml not found - aborting"; exit 1])
+ AC_CHECK_LIB(png, png_init_io, , [echo "libpng not found - aborting"; exit 1])
+ 
+ 
+--- joyce-2.0.2/bin/Joyce.hxx.orig	2002-12-17 00:26:13.000000000 +0100
++++ joyce-2.0.2/bin/Joyce.hxx	2003-08-23 12:06:19.920387672 +0200
+@@ -81,6 +83,7 @@
+ };
+ 
+ #include "JoyceZ80.hxx"         /* Z80 emulation declarations    */
++#include <libdsk.h>
+ #include "765.h"	        /* FDC emulation declarations    */
+ #include "JoyceComms.hxx"	/* Wrapper for comms code        */
+ // New device model
+--- joyce-2.0.2/bin/JoyceFdc.hxx.orig	2001-09-24 00:52:32.000000000 +0200
++++ joyce-2.0.2/bin/JoyceFdc.hxx	2003-08-23 12:04:41.603334136 +0200
+@@ -34,7 +34,7 @@
+ 	void writeData(byte b);
+ 	byte readData(void);
+ 	byte readControl(void);
+-	void isr(FDC_765 *, int);
++	void isr(FDC_PTR, int);
+ 	bool loadBootSector(const string filename, char *type, byte *sector);
+ 	void insertB(const string filename);
+ 	void tick(void);
+@@ -60,11 +60,11 @@
+ public:
+ 	UiEvent requestDsk   (UiDrawer *d, string &filename, char **type);
+ protected:
+-	FDC_765 m_fdc;                    /* (v1.37) floppy controller */
++	FDC_PTR m_fdc;                    /* (v1.37) floppy controller */
+ //	DSK_FLOPPY_DRIVE m_fd[4];         /* (v1.37) floppy drives A: and B: */   
+-	LIBDSK_FLOPPY_DRIVE m_fdl[4];     /* [v1.9.3] Move to LIBDSK for floppies */   
+-	FLOPPY_DRIVE m_fd_none[4];        /* (v1.37) disconnected A: and B: */
+-	NC9_FLOPPY_DRIVE m_fd_9256[4];    /* (v1.37) disconnected C: and D: */
++	FDRV_PTR m_fdl[4];                /* [v1.9.3] Move to LIBDSK for floppies */   
++	FDRV_PTR m_fd_none[4];            /* (v1.37) disconnected A: and B: */
++	FDRV_PTR m_fd_9256[4];            /* (v1.37) disconnected C: and D: */
+ 	
+ 	byte m_terminalCount;             /* (v1.37) FDC's TC line */ 
+ 	bool m_fdcInt;
+--- joyce-2.0.2/bin/JoyceFdc.cxx.orig	2002-12-17 00:18:17.000000000 +0100
++++ joyce-2.0.2/bin/JoyceFdc.cxx	2003-08-23 12:49:06.621189840 +0200
+@@ -40,6 +40,7 @@
+ 
+ 	m_sys = s;
+ 
++	m_fdc = fdc_new();
+ 	for (n = 0; n < 4; n++)
+ 	{
+ 		m_driveType[n] = FD_35;
+@@ -58,20 +59,20 @@
+ {
+         for (int n = 0; n < 4; n++)
+         {
+-                fd_eject(m_fdc.fdc_drive[n]);
++                fd_eject(fdc_getdrive(m_fdc,n));
+         }
+ 
+ }
+ 
+ static JoyceFDC *theFDC;
+ 
+-static void JoyceFdcIsr(FDC_765 *fdc, int status)
++static void JoyceFdcIsr(FDC_PTR fdc, int status)
+ {
+ 	theFDC->isr(fdc, status);
+ }
+ 
+ 
+-void JoyceFDC::isr(FDC_765 *fdc, int status)
++void JoyceFDC::isr(FDC_PTR fdc, int status)
+ {
+         if (m_fdcInt != status)
+ 	{	
+@@ -85,36 +86,36 @@
+ void JoyceFDC::setTerminalCount(bool b)
+ {
+ 	m_terminalCount = b;
+-	fdc_set_terminal_count(&m_fdc, b);
++	fdc_set_terminal_count(m_fdc, b);
+ }
+ 
+ void JoyceFDC::setMotor(byte b)
+ {
+-	fdc_set_motor(&m_fdc, b);
++	fdc_set_motor(m_fdc, b);
+ }
+ 
+ 
+ void JoyceFDC::writeData(byte b)
+ {
+-	fdc_write_data(&m_fdc, b); 
++	fdc_write_data(m_fdc, b); 
+ }
+ 
+ 
+ byte JoyceFDC::readData(void)
+ {
+-	return fdc_read_data(&m_fdc);
++	return fdc_read_data(m_fdc);
+ }
+ 
+ 
+ byte JoyceFDC::readControl(void)
+ {
+-	return fdc_read_ctrl(&m_fdc);
++	return fdc_read_ctrl(m_fdc);
+ }
+ 
+ 
+ void JoyceFDC::tick(void)
+ {
+-        fdc_tick(&m_fdc);  /* Check for end of FDC operation */
++        fdc_tick(m_fdc);  /* Check for end of FDC operation */
+ }
+ 
+ 
+@@ -124,9 +125,9 @@
+ 
+ 	//fd_eject(&m_fd[1].fdd);
+ 	//strcpy(m_fd[1].fdd_filename, filename.c_str());
+-	fd_eject(&m_fdl[1].fdl);
+-	strcpy(m_fdl[1].fdl_filename, filename.c_str());
+-	m_fdl[1].fdl_type = NULL;
++	fd_eject(m_fdl[1]);
++	fdd_setfilename(m_fdl[1], filename.c_str());
++	fdl_settype(m_fdl[1], NULL);
+ }
+ 
+ 
+@@ -139,21 +140,21 @@
+ 	//strcpy(m_fd[0].fdd_filename, filename.c_str());
+         //joyce_dprintf("Loading %s\n", m_fd[0].fdd_filename);
+ 	//m_fd[0].fdd.fd_readonly = m_bootRO;
+-	fd_eject(&m_fdl[0].fdl);
+-	strcpy(m_fdl[0].fdl_filename, filename.c_str());
+-	m_fdl[0].fdl_type = type;
+-        joyce_dprintf("Loading %s\n", m_fdl[0].fdl_filename);
+-	m_fdl[0].fdl.fd_readonly = m_bootRO;
++	fd_eject(m_fdl[0]);
++	fdd_setfilename(m_fdl[0], filename.c_str());
++	fdl_settype(m_fdl[0], type);
++        joyce_dprintf("Loading %s\n", fdd_getfilename(m_fdl[0]));
++	fd_setreadonly(m_fdl[0], m_bootRO);
+ 
+ 	setMotor(0x0F);
+ 
+        // if (!fd_isready(&m_fd[0].fdd)) return 0;
+-        if (!fd_isready(&m_fdl[0].fdl)) return 0;
++        if (!fd_isready(m_fdl[0])) return 0;
+ 
+         joyce_dprintf("Image file exists.\n");
+ 
+         //err = fd_seek_cylinder(&m_fd[0].fdd, 0);
+-        err = fd_seek_cylinder(&m_fdl[0].fdl, 0);
++        err = fd_seek_cylinder(m_fdl[0], 0);
+ 
+         if (err)
+         {
+@@ -161,7 +162,7 @@
+                 return false;       /* Track 0 */
+         }
+         //err = fd_read_sector(&m_fd[0].fdd, 0,0,0,1, sector, 512);
+-        err = fd_read_sector(&m_fdl[0].fdl, 0,0,0,1, sector, 512);
++        err = fd_read_sector(m_fdl[0], 0,0,0,1, sector, 512, NULL, 1, 0, 0);
+         if (err)
+         {
+                 joyce_dprintf("Read error while booting: %d\n", err);
+@@ -179,7 +180,7 @@
+ 	// eject all drives (thus, hopefully, committing changes)
+         for (int n = 0; n < 4; n++)
+         {
+-                fd_eject(m_fdc.fdc_drive[n]);
++                fd_eject(fdc_getdrive(m_fdc, n));
+         }
+ 	reset(0);
+ }
+@@ -192,37 +193,37 @@
+ 	{
+ 		theFDC = this;
+ 		m_fdcInt = false;
+-		fdc_reset(&m_fdc);
+-		m_fdc.fdc_isr = JoyceFdcIsr;
++		fdc_reset(m_fdc);
++		fdc_setisr(m_fdc, JoyceFdcIsr);
+ 		m_terminalCount = false;
+ 	}
+ 	for (n = somedrives; n < 4; n++)
+ 	{
+                 //fdd_init      (&m_fdd[n]);
+-                fdl_init      (&m_fdl[n]);
+-                fd_init       (&m_fd_none[n]);
+-                fd_init_nc9256(&m_fd_9256[n]);
+-
+-                m_fdl[n].fdl.fd_type  = m_driveType[n];
+-                m_fdl[n].fdl.fd_heads = m_driveHeads[n];
+-                m_fdl[n].fdl.fd_cylinders = m_driveCyls[n];
++		m_fdl[n] = fd_newdsk();
++		m_fd_none[n] = fd_new();
++		m_fd_9256[n] = fd_newnc9(fd_new());
++
++                fd_settype(m_fdl[n], m_driveType[n]);
++                fd_setheads(m_fdl[n], m_driveHeads[n]);
++                fd_setcyls(m_fdl[n], m_driveCyls[n]);
+ 
+ 		idx = m_driveMap[n];
+ 		switch(idx)
+ 		{
+ 			case 0: case 1: case 2: case 3:
+         		//m_fdc.fdc_drive[n] = &m_fd[idx].fdd; break;
+-        		m_fdc.fdc_drive[n] = &m_fdl[idx].fdl; break;
++        		fdc_setdrive(m_fdc, n, m_fdl[idx]); break;
+ 			case 4: case 5: case 6: case 7:
+-        		m_fdc.fdc_drive[n] = &m_fd_none[idx - 4]; break;
++        		fdc_setdrive(m_fdc, n, m_fd_none[idx - 4]); break;
+ 			case 8: case 9: case 10: case 11:
+-        		m_fdc.fdc_drive[n] = &m_fd_9256[idx - 8].fdd; break;
++        		fdc_setdrive(m_fdc, n, m_fd_9256[idx - 8]); break;
+ 			case 12: case 13: case 14: case 15:
+-			m_fdc.fdc_drive[n] = m_fdc.fdc_drive[idx - 12]; break;
++			fdc_setdrive(m_fdc, n, fdc_getdrive(m_fdc, idx - 12)); break;
+ 		}	
+ 	}
+ 	// Make the 9256 disconnected drives 2,3 use unit 1 as their proxy.
+-	for (n = 2; n < 4; n++) m_fd_9256[n].nc9_fdd = m_fdc.fdc_drive[1];
++	for (n = 2; n < 4; n++) fd9_setproxy(m_fd_9256[n], fdc_getdrive(m_fdc, 1));
+ }
+ 
+ 
+@@ -285,29 +286,29 @@
+ 		type  = (char *)xmlGetProp(cur, (xmlChar *)"type");
+ 		cyls  = (char *)xmlGetProp(cur, (xmlChar *)"cylinders");
+ 		heads = (char *)xmlGetProp(cur, (xmlChar *)"heads");
+-		m_fdc.fdc_drive[id] = &m_fdl[id].fdl;
++		m_fdl[id] = fd_newdsk();
++		fdc_setdrive(m_fdc, id, m_fdl[id]);
+ 		m_driveMap[id] = id;
+ 		//fdd_init(&m_fd[id]);
+-		fdl_init(&m_fdl[id]);
+ 
+ 		if (cyls) 
+ 		{ 
+-			m_driveCyls[id] = 
+-			m_fdl[id].fdl.fd_cylinders = atoi(cyls);
++			fd_setcyls(m_fdl[id], (m_driveCyls[id] = 
++				atoi(cyls)));
+ 		}
+ 		if (heads) 
+ 		{ 
+-			m_driveHeads[id] = 
+-			m_fdl[id].fdl.fd_heads = atoi(heads);
++			fd_setheads(m_fdl[id], (m_driveHeads[id] = 
++				atoi(heads)));
+ 		}
+ 		if (type)
+ 		{
+ 			if (!strcmp(type, "3.5"))  
+-				m_driveType[id] = m_fdl[id].fdl.fd_type = FD_35;	
++				fd_settype(m_fdl[id], (m_driveType[id] = FD_35));
+ 			if (!strcmp(type, "5.25")) 
+-				m_driveType[id] = m_fdl[id].fdl.fd_type = FD_525;	
++				fd_settype(m_fdl[id], (m_driveType[id] = FD_525));
+ 			if (!strcmp(type, "3.0"))  
+-				m_driveType[id] = m_fdl[id].fdl.fd_type = FD_30;	
++				fd_settype(m_fdl[id], (m_driveType[id] = FD_30));
+ 		}
+ 		if (type)  free(type);
+ 		if (heads) free(heads);
+@@ -316,16 +317,16 @@
+ 
+ 		case 2: /* nc8 */
+ 		m_driveMap[id] = id + 4;
+-                m_fdc.fdc_drive[id] = &m_fd_none[id];
+-                fd_init(&m_fd_none[id]);
+-                m_fd_none[id].fd_type = FD_NONE;
++		m_fd_none[id] = fd_new();
++                fdc_setdrive(m_fdc, id, m_fd_none[id]);
++                fd_settype(m_fd_none[id], FD_NONE);
+ 		break;
+ 
+ 		case 3:	/* nc9 */
+ 		m_driveMap[id] = id + 8;
+-		m_fdc.fdc_drive[id] = &m_fd_9256[id].fdd;
+-		fd_init_nc9256(&m_fd_9256[id]);
+-		m_fd_9256[id].fdd.fd_type = FD_NC9256;
++		m_fd_9256[id] = fd_newnc9(fd_new());
++		fdc_setdrive(m_fdc, id, m_fd_9256[id]);
++		fd_settype(m_fd_9256[id], FD_NC9256);
+ 		break;
+ 
+ 		case 4: /* Same as */
+@@ -336,7 +337,7 @@
+ 			free(t);
+ 		}
+ 		if (as >= 0 && as <= 3) m_driveMap[id] = 12 + as;
+-		m_fdc.fdc_drive[id] = m_fdc.fdc_drive[as];
++		fdc_setdrive(m_fdc, id, fdc_getdrive(m_fdc, as));
+ 		break;
+ 
+ 	}
+@@ -530,7 +531,7 @@
+ 					if (changes)
+ 					{
+         					for (n = 0; n < 4; n++)
+-                					fd_eject(m_fdc.fdc_drive[n]);
++                					fd_eject(fdc_getdrive(m_fdc, n));
+ 						reset();
+ 						// Update the PCW type in JoyceSystem.
+ 						m_sys->setModel(adaptModel(m_sys->getModel()));
+@@ -749,14 +750,14 @@
+ 	{
+ 		m_driveMap[2] = 10; 
+ 		m_driveMap[3] = 11;
+-        	for (n = 2; n < 4; n++) fd_eject(m_fdc.fdc_drive[n]);
++        	for (n = 2; n < 4; n++) fd_eject(fdc_getdrive(m_fdc, n));
+ 		reset(2);
+ 	}	
+ 	if (is8256 && (j == PCW9000P || j == PCW10))
+ 	{
+ 		m_driveMap[2] = 12; 
+ 		m_driveMap[3] = 13;
+-        	for (n = 2; n < 4; n++) fd_eject(m_fdc.fdc_drive[n]);
++        	for (n = 2; n < 4; n++) fd_eject(fdc_getdrive(m_fdc, n));
+ 		reset(2);
+ 	}	
+ 		
+@@ -780,9 +781,9 @@
+ 		{
+ 			string title = dtitle[nd];
+ 			if (nd) uim.add(new UiSeparator(d));
+-			if (m_fdl[nd].fdl_filename[0]) 
++			if (fdd_getfilename(m_fdl[nd])[0]) 
+ 			{
+-				title += displayName(m_fdl[nd].fdl_filename,40);
++				title += displayName(fdd_getfilename(m_fdl[nd]),40);
+ 				title += ")  ";
+ 				uim.add(new UiLabel(title, d));
+ 				uim.add(new UiCommand((SDLKey)(SDLK_e + nd), "  Eject  ", d));
+@@ -793,7 +794,7 @@
+ 				uim.add(new UiLabel(title, d));
+                          	uim.add(new UiCommand((SDLKey)(SDLK_i + nd), "  Insert...  ", d, UIG_SUBMENU));
+ 			}
+-			uim.add(new UiSetting((SDLKey)(SDLK_r + nd), m_fdl[nd].fdl.fd_readonly, "  Read only  ", d));
++			uim.add(new UiSetting((SDLKey)(SDLK_r + nd), fd_getreadonly(m_fdl[nd]), "  Read only  ", d));
+ 		}
+ 		uim.add(new UiSeparator(d));
+ 		uim.add(new UiCommand(SDLK_m, "  Disc management...  ", d, UIG_SUBMENU));
+@@ -807,18 +808,18 @@
+ 		sel = uim.getSelected();
+ 		switch(uim.getKey(sel))
+ 		{
+-			case SDLK_e: fd_eject(&m_fdl[0].fdl); break; 
+-			case SDLK_f: fd_eject(&m_fdl[1].fdl); break; 
+-			case SDLK_g: fd_eject(&m_fdl[2].fdl); break; 
+-			case SDLK_h: fd_eject(&m_fdl[3].fdl); break; 
++			case SDLK_e: fd_eject(m_fdl[0]); break; 
++			case SDLK_f: fd_eject(m_fdl[1]); break; 
++			case SDLK_g: fd_eject(m_fdl[2]); break; 
++			case SDLK_h: fd_eject(m_fdl[3]); break; 
+ 			case SDLK_i:
+ 			case SDLK_j:
+ 			case SDLK_k:
+ 			case SDLK_l:
+ 			{
+ 				nd = uim.getKey(sel) - SDLK_i;
+-				string str = m_fdl[nd].fdl_filename;
+-				char *type = m_fdl[nd].fdl_type;
++				string str = fdd_getfilename(m_fdl[nd]);
++				char *type = (char*)fdl_gettype(m_fdl[nd]);
+ /* Old code for non-LIBDSK FDC
+                                 JoyceFileChooser f("  OK  ", d);
+                                 if (str != "") 
+@@ -837,9 +838,9 @@
+ 				uie = requestDsk(d, str, &type);
+ 				if (uie == UIE_OK)
+ 				{
+-					fd_eject(&m_fdl[nd].fdl); 
+-					strcpy(m_fdl[nd].fdl_filename, str.c_str());
+-					m_fdl[nd].fdl_type = type;	
++					fd_eject(m_fdl[nd]); 
++					fdd_setfilename(m_fdl[nd], str.c_str());
++					fdl_settype(m_fdl[nd], type);
+ 				}				
+ 
+ 			}
+@@ -847,10 +848,10 @@
+ 			case SDLK_m: uie = discManager(m_sys, d);
+ 				     if (uie == UIE_QUIT) return uie;
+ 				     break;
+-			case SDLK_r: m_fdl[0].fdl.fd_readonly = !m_fdl[0].fdl.fd_readonly; break;
+-			case SDLK_s: m_fdl[1].fdl.fd_readonly = !m_fdl[1].fdl.fd_readonly; break;
+-			case SDLK_t: m_fdl[2].fdl.fd_readonly = !m_fdl[2].fdl.fd_readonly; break;
+-			case SDLK_u: m_fdl[3].fdl.fd_readonly = !m_fdl[3].fdl.fd_readonly; break;
++			case SDLK_r: fd_setreadonly(m_fdl[0], !fd_getreadonly(m_fdl[0])); break;
++			case SDLK_s: fd_setreadonly(m_fdl[1], !fd_getreadonly(m_fdl[1])); break;
++			case SDLK_t: fd_setreadonly(m_fdl[2], !fd_getreadonly(m_fdl[2])); break;
++			case SDLK_u: fd_setreadonly(m_fdl[3], !fd_getreadonly(m_fdl[3])); break;
+ 
+ 
+ 			case SDLK_ESCAPE: return UIE_OK;

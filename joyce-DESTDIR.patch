@@ -1,0 +1,18 @@
+--- joyce-2.0.2/share/Makefile.am.orig	2001-09-15 16:36:14.000000000 +0200
++++ joyce-2.0.2/share/Makefile.am	2003-08-23 11:08:46.208431696 +0200
+@@ -1,9 +1,9 @@
+ SOURCES = bootfile.emj  pcw.bmp  utils.dsk 
+ 
+ install-data-local:
+-	$(mkinstalldirs) $(datadir)/Joyce
+-	$(mkinstalldirs) $(datadir)/Joyce/Boot
+-	$(mkinstalldirs) $(datadir)/Joyce/Disks
+-	$(INSTALL_DATA) $(srcdir)/pcw.bmp $(datadir)/Joyce
+-	$(INSTALL_DATA) $(srcdir)/bootfile.emj $(datadir)/Joyce/Boot
+-	$(INSTALL_DATA) $(srcdir)/utils.dsk $(datadir)/Joyce/Disks
++	$(mkinstalldirs) $(DESTDIR)$(datadir)/Joyce
++	$(mkinstalldirs) $(DESTDIR)$(datadir)/Joyce/Boot
++	$(mkinstalldirs) $(DESTDIR)$(datadir)/Joyce/Disks
++	$(INSTALL_DATA) $(srcdir)/pcw.bmp $(DESTDIR)$(datadir)/Joyce
++	$(INSTALL_DATA) $(srcdir)/bootfile.emj $(DESTDIR)$(datadir)/Joyce/Boot
++	$(INSTALL_DATA) $(srcdir)/utils.dsk $(DESTDIR)$(datadir)/Joyce/Disks
