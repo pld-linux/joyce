@@ -1,0 +1,9 @@
+--- joyce-2.0.2/Xbm/Makefile.am.orig	2001-08-26 00:55:05.000000000 +0200
++++ joyce-2.0.2/Xbm/Makefile.am	2004-02-19 18:19:42.326314936 +0100
+@@ -1,5 +1,5 @@
+ 
+ 
+-SOURCES=bw.xbm floppy.xbm folder.xbm pcw.xpm pcwkey.xbm hatches.xbm \
++EXTRA_DIST=bw.xbm floppy.xbm folder.xbm pcw.xpm pcwkey.xbm hatches.xbm \
+ 	dskfile.xbm bw.xbm mask.xbm file.xbm up.xbm mask8_2.xbm fixdsk.xbm
+ 
