@@ -50,6 +50,8 @@ komputery PCW z serii 8000, 9000 i 10, ale nie PCW 16.
 %{__autoconf}
 %{__autoheader}
 %{__automake}
+CFLAGS="%{rpmcflags} `xml2-config --cflags`"
+CXXFLAGS="%{rpmcflags} `xml2-config --cflags`"
 %configure \
 	--enable-floppy \
 	--with-stl
