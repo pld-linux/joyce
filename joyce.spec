@@ -2,7 +2,7 @@ Summary:	JOYCE - an Amstrad PCW emulator
 Summary(pl):	JOYCE - emulator Amstrada PCW
 Name:		joyce
 Version:	2.0.2
-Release:	1
+Release:	2
 License:	GPL
 Group:		Applications
 Source0:	http://www.seasip.demon.co.uk/Unix/Joyce/%{name}-%{version}.tar.gz
@@ -10,6 +10,8 @@ Source0:	http://www.seasip.demon.co.uk/Unix/Joyce/%{name}-%{version}.tar.gz
 Patch0:		%{name}-system-libs.patch
 Patch1:		%{name}-DESTDIR.patch
 Patch2:		%{name}-gcc.patch
+Patch3:		%{name}-am.patch
+Patch4:		%{name}-sdl.patch
 URL:		http://www.seasip.demon.co.uk/Unix/Joyce/
 BuildRequires:	SDL-devel >= 1.0.8
 BuildRequires:	autoconf
@@ -39,6 +41,8 @@ komputery PCW z serii 8000, 9000 i 10, ale nie PCW 16.
 %patch0 -p1
 %patch1 -p1
 %patch2 -p1
+%patch3 -p1
+%patch4 -p1
 
 %build
 %{__libtoolize}
