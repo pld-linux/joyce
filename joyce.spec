@@ -2,7 +2,7 @@ Summary:	JOYCE - an Amstrad PCW emulator
 Summary(pl):	JOYCE - emulator Amstrada PCW
 Name:		joyce
 Version:	2.0.2
-Release:	2
+Release:	3
 License:	GPL
 Group:		Applications
 Source0:	http://www.seasip.demon.co.uk/Unix/Joyce/%{name}-%{version}.tar.gz
