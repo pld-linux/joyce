@@ -1,5 +1,5 @@
 Summary:	JOYCE - an Amstrad PCW emulator
-Summary(pl):	JOYCE - emulator Amstrada PCW
+Summary(pl.UTF-8):   JOYCE - emulator Amstrada PCW
 Name:		joyce
 Version:	2.0.2
 Release:	5
@@ -32,8 +32,8 @@ BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 JOYCE is an Amstrad PCW emulator for UNIX and Windows. It emulates the
 PCW 8000, 9000 and 10 series computers, but not the PCW 16.
 
-%description -l pl
-JOYCE jest emulatorem Amstrada PCW dla uniksów i Windows. Emuluje
+%description -l pl.UTF-8
+JOYCE jest emulatorem Amstrada PCW dla uniksÃ³w i Windows. Emuluje
 komputery PCW z serii 8000, 9000 i 10, ale nie PCW 16.
 
 %prep
