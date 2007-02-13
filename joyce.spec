@@ -1,5 +1,5 @@
 Summary:	JOYCE - an Amstrad PCW emulator
-Summary(pl.UTF-8):   JOYCE - emulator Amstrada PCW
+Summary(pl.UTF-8):	JOYCE - emulator Amstrada PCW
 Name:		joyce
 Version:	2.0.2
 Release:	5
